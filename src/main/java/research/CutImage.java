@@ -1,8 +1,12 @@
 package research;
 
+import java.awt.Component;
 import java.awt.Image;
 import java.awt.Rectangle;
 import java.awt.image.BufferedImage;
+import java.awt.image.CropImageFilter;
+import java.awt.image.FilteredImageSource;
+import java.awt.image.ImageFilter;
 import java.io.BufferedWriter;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -101,7 +105,8 @@ public class CutImage {
     return result;
   }
 
-  public static void cutImage2File(ImageReader imagereader, int x, int y, int w, int h) throws Exception {
+  public static void cutImage2File(ImageReader imagereader, int x, int y, int w, int h)
+      throws Exception {
     System.out.println(imagereader.getWidth(0) + ":" + imagereader.getHeight(0));
     // 设置感兴趣的源区域。
     ImageReadParam param = imagereader.getDefaultReadParam();
@@ -112,8 +117,9 @@ public class CutImage {
     // 将BuffeerImage写出通过ImageIO
     ImageIO.write(bi, "jpeg", new File(tarImage));
   }
-  
-  public static byte[] cutImage2Bytes(ImageReader imagereader, int x, int y, int w, int h) throws Exception {
+
+  public static byte[] cutImage2Bytes(ImageReader imagereader, int x, int y, int w, int h)
+      throws Exception {
     System.out.println(imagereader.getWidth(0) + ":" + imagereader.getHeight(0));
     // 设置感兴趣的源区域。
     ImageReadParam param = imagereader.getDefaultReadParam();
@@ -126,7 +132,7 @@ public class CutImage {
     ImageIO.write(bi, "jpeg", baos);
     return baos.toByteArray();
   }
-  
+
   public static void cutImage(String srcImage) throws Exception {
     String suffix = srcImage.substring(srcImage.lastIndexOf(".") + 1);
     ImageInputStream iis = ImageIO.createImageInputStream(new FileInputStream(srcImage));
@@ -136,26 +142,47 @@ public class CutImage {
     imagereader.setInput(iis);
     int oldWidth = imagereader.getWidth(0);
     int oldHeight = imagereader.getHeight(0);
-    int newLeft = (int)(oldWidth * (cutRatio));
+    int newLeft = (int) (oldWidth * (cutRatio));
     int newWidth = oldWidth - newLeft;
     byte[] result = cutImage2Bytes(imagereader, newLeft, 0, newWidth, oldHeight);
     System.out.println(result.length);
   }
-  
+
   public static void main2(String[] args) throws Exception {
     Duration d = new Duration(System.currentTimeMillis());
     cutImage(srcImage);
     System.out.println(d.getDuration(System.currentTimeMillis()));
   }
-  
-  public static void main(String[] args) throws IOException {
-    File f = new File("/Users/apple/Downloads/账单收集/图片26.jpg");
-//    File testfile = new File("/Users/apple/Downloads/result/aaa.txt");
-//    BufferedWriter bw = new BufferedWriter(new FileWriter(testfile));
-    BufferedImage bufferedimage = ImageIO.read(f);
+
+  // 将某个目录下的图片，左边替换成白色
+  public static void mainChange(String[] args) throws IOException {
+    String srcDir = "/Users/apple/Downloads/pic_coll/";
+    String dstDir = "/Users/apple/Downloads/pic_coll_result/";
+    changeByDir(srcDir, dstDir);
+  }
+
+  public static void changeByDir(String sourceDir, String dstDir) throws IOException {
+    File dir = new File(sourceDir);
+    for (File f : dir.listFiles()) {
+      if (!f.getName().startsWith(".")) {
+        String dstFileName = dstDir + f.getName();
+        featuresReplace(f, dstFileName);
+      }
+    }
+  }
+
+  /**
+   * 使用BufferedImage遍历图片，并将行首是白色，且在左边17%的元素替换为白色
+   * 
+   * @throws IOException
+   */
+  public static void featuresReplace(File srcImageFile, String dstFileName) throws IOException {
+    System.out.println(dstFileName);
+    String suffix = dstFileName.substring(dstFileName.lastIndexOf(".") + 1);
+    BufferedImage bufferedimage = ImageIO.read(srcImageFile);
     int width = bufferedimage.getWidth();
     int height = bufferedimage.getHeight();
-    int changeWidthLimit = (int)(width * 0.17);
+    int changeWidthLimit = (int) (width * 0.17);
     System.out.println(width + ":" + height);
     for (int y = 0; y < height; y++) {
       if (bufferedimage.getRGB(0, y) == -1) {
@@ -164,6 +191,34 @@ public class CutImage {
         }
       }
     }
-    ImageIO.write(bufferedimage, "jpg", new File("/Users/apple/Downloads/result/aaa.jpg"));
+    ImageIO.write(bufferedimage, suffix, new File(dstFileName));
+  }
+
+  // 切图片，如果图片的尺寸超大，就将图片切分成多张
+  public static void main(String[] args) throws IOException {
+    String image = "/Users/apple/Downloads/tmp/bbbig.jpg";
+    BufferedImage bufferedimage = ImageIO.read(new File(image));
+    int width = bufferedimage.getWidth();
+    int height = bufferedimage.getHeight();
+    System.out.println(width);
+    System.out.println(height);
+  }
+  
+  public static void featuresReplaceAndCrop(File srcImageFile, String dstFileName) throws IOException {
+    System.out.println(dstFileName);
+    String suffix = dstFileName.substring(dstFileName.lastIndexOf(".") + 1);
+    BufferedImage bufferedimage = ImageIO.read(srcImageFile);
+    int width = bufferedimage.getWidth();
+    int height = bufferedimage.getHeight();
+    int changeWidthLimit = (int) (width * 0.17);
+    System.out.println(width + ":" + height);
+    for (int y = 0; y < height; y++) {
+      if (bufferedimage.getRGB(0, y) == -1) {
+        for (int x = 0; x < changeWidthLimit; x++) {
+          bufferedimage.setRGB(x, y, -1);
+        }
+      }
+    }
+    ImageIO.write(bufferedimage, suffix, new File(dstFileName));
   }
 }

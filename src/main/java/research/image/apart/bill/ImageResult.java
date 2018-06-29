@@ -1,4 +1,4 @@
-package research.ocr.result;
+package research.image.apart.bill;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -14,20 +14,20 @@ public class ImageResult {
   private List<Rectangle> wordsResult;
   private int wordsResultNum;
 
-  public ImageResult(JSONObject baiduJSONObject) {
-    try {
-      this.logId = Long.toString(baiduJSONObject.getLong("log_id"));
-      this.wordsResultNum = baiduJSONObject.getInt("words_result_num");
-      wordsResult = new ArrayList<>();
-      JSONArray jsa = baiduJSONObject.getJSONArray("words_result");
+  public ImageResult(List<JSONObject> baiduJSONObjects) throws JSONException {
+    // logid取第一张的logid
+    this.logId = Long.toString(baiduJSONObjects.get(0).getLong("log_id"));
+    int num = 0;
+    wordsResult = new ArrayList<>();
+    for (JSONObject ele : baiduJSONObjects) {
+      num += ele.getInt("words_result_num");
+      JSONArray jsa = ele.getJSONArray("words_result");
       for (int i = 0; i < jsa.length(); i++) {
         BaiduRectangle bdRec =  JSON.parseObject(jsa.getJSONObject(i).toString(), BaiduRectangle.class);
         wordsResult.add(new Rectangle(bdRec));
       }
-    } catch (JSONException e) {
-      e.printStackTrace();
-      System.out.println(baiduJSONObject.toString());
     }
+    this.wordsResultNum = num;
   }
 
   public String getLogId() {

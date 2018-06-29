@@ -1,26 +1,38 @@
 package research;
 
+import java.awt.Point;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
+import org.slf4j.LoggerFactory;
 
 import com.alibaba.fastjson.JSON;
 import com.baidu.aip.ocr.AipOcr;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.LoggerContext;
+import research.bean.Mask;
+import research.bean.Rect;
 import research.ocr.result.ImageResult;
+import research.ocr.result.Rectangle;
 
 public class Sample {
   // 设置APPID/AK/SK
-  public static final String APP_ID = "11293793";
-  public static final String API_KEY = "cpo3bc0IZmVzCE6VzrqA5xSL";
-  public static final String SECRET_KEY = "Ow0MGqY2sb9GuQi5oGCoDThhtU1EFbCt";
+  public static final String APP_ID = "11333409";
+  public static final String API_KEY = "ia4ewQD1V4vEf30tEQQy7SW0";
+  public static final String SECRET_KEY = "rZm6KimnowEefp9tK7ooPODtxsc5gV0n";
 
-  public static void main(String[] args) throws IOException {
+  public static void main0(String[] args) throws IOException {
     // 初始化一个AipOcr
     AipOcr client = new AipOcr(APP_ID, API_KEY, SECRET_KEY);
 
@@ -87,7 +99,7 @@ public class Sample {
     return fileName.substring(fileName.indexOf("_") + 1, fileName.lastIndexOf("."));
   }
 
-  public static void main1(String[] args) {
+  public static void mainSingleTest(String[] args) {
     // 初始化一个AipOcr
     AipOcr client = new AipOcr(APP_ID, API_KEY, SECRET_KEY);
 
@@ -95,18 +107,61 @@ public class Sample {
     client.setConnectionTimeoutInMillis(2000);
     client.setSocketTimeoutInMillis(60000);
 
-    String fileName = "/Users/apple/Downloads/pic/WechatIMG1 1.jpeg";
-    System.out.println(general(client, fileName).toString(2));
+    String fileName = "/Users/apple/Downloads/tmp/image3/20180612_157/01.png";
+    JSONObject res = accurateGeneral(client, fileName);
+    System.out.println(res.toString(2));
+    // System.out.println(JSON.toJSONString(resultChange(res)));
   }
 
+  public static Map<String, Mask> resultChange(JSONObject jSONObjectBD) {
+    List<Mask> result = new ArrayList<>();
+    JSONArray wordsResult = jSONObjectBD.getJSONArray("words_result");
+    for (int i = 0; i < wordsResult.length(); i++) {
+      JSONObject o = (JSONObject) wordsResult.get(i);
+      String text = o.getString("words");
+      if (text != null && text.trim().length() > 0) {
+        JSONObject location = o.getJSONObject("location");
+        Rect rect = new Rect(location.getInt("left"), location.getInt("top"),
+            location.getInt("width"), location.getInt("height"));
+        Mask m = new Mask();
+        m.setRect(rect);
+        m.setText(text);
+        JSONArray points = o.getJSONArray("vertexes_location");
+        for (int j = 0; j < points.length(); j++) {
+          JSONObject point = points.getJSONObject(j);
+          switch(j) {
+            case 0:
+              m.setPoint1(new Point(point.getInt("x"), point.getInt("y")));
+              break;
+            case 1:
+              m.setPoint2(new Point(point.getInt("x"), point.getInt("y")));
+              break;
+            case 2:
+              m.setPoint3(new Point(point.getInt("x"), point.getInt("y")));
+              break;
+            case 3:
+              m.setPoint4(new Point(point.getInt("x"), point.getInt("y")));
+              break;
+            default :
+              System.out.println("出现错误索引" + j);
+          }
+        }
+        result.add(m);
+      }
+    }
+    Map<String, Mask> finalResult = new TreeMap<>();
+    for (int i = 0; i < result.size(); i++) {
+      finalResult.put("mask_" + (i + 1), result.get(i));
+    }
+    return finalResult;
+  }
   // 测试同一个appid并发的情况
-  public static void testConcurrent() {
+  public static void testConcurrent(String image) {
     AipOcr client = new AipOcr(APP_ID, API_KEY, SECRET_KEY);
     // 可选：设置网络连接参数
-    client.setConnectionTimeoutInMillis(2000);
+    client.setConnectionTimeoutInMillis(10000);
     client.setSocketTimeoutInMillis(60000);
-    String fileName = "/Users/apple/Downloads/pic/WechatIMG1 1.jpeg";
-    System.out.println(general(client, fileName));
+    System.out.println(basicAccurateGeneral(client, image));
     /*
     while (!Thread.interrupted()) {
       System.out.println(Thread.currentThread() + ":::" + general(client, fileName));
@@ -117,17 +172,6 @@ public class Sample {
       }
     }
     */
-  }
-
-  // 测试一下同一个账号
-  public static void mainCon(String[] args) {
-    new Thread(() -> testConcurrent()).start();
-    try {
-      Thread.sleep(10000);
-    } catch (InterruptedException e) {
-      e.printStackTrace();
-    }
-    new Thread(() -> testConcurrent()).start();
   }
 
   private static final String INCLUD = "\"";
@@ -141,7 +185,7 @@ public class Sample {
     options.put("probability", "true");
     // 参数为本地图片路径
     // return client.webImageUrl("12", options);//.webImage(image, options);
-    return client.accurateGeneral(image, options);
+    return client.basicAccurateGeneral(image, options);
   }
 
   // 通用文字识别
@@ -233,5 +277,85 @@ public class Sample {
     return sb.toString();
   }
 
-
+  // 区分阿里和微信的图片
+  public static void mainApart(String[] args) {
+//    LoggerContext loggerContext= (LoggerContext) LoggerFactory.getILoggerFactory();
+//    ch.qos.logback.classic.Logger logger=loggerContext.getLogger("root");  
+//    logger.setLevel(Level.toLevel("WARN"));
+    String dir = "/Users/apple/Downloads/tmp/image3/20180612_253/";
+    apartWechatAli(dir);
+  }
+  
+  public static void apartWechatAli(String dir) {
+    List<String> wechat = new ArrayList<>();
+    List<String> ali = new ArrayList<>();
+    File fDir = new File(dir);
+    String[] fileNames = fDir.list();
+    AipOcr ao = getAipOcr();
+    for (int i = 0; i < fileNames.length; i++) {
+      String name = fileNames[i];
+      if (name.startsWith(".")) {
+        continue;
+      }
+      System.out.println(i + "/" +  fileNames.length + " : " + name);
+      JSONObject j = basicAccurateGeneral(ao, dir + name);
+      ImageResult ir = new ImageResult(j);
+      boolean we = false;
+      for (Rectangle r : ir.getWordsResult()) {
+        if(r.getWords().contains("交易记录")) {
+          we = true;
+          break;
+        }
+        if (r.getWords().contains("筛选")  || r.getWords().contains("金额")) {
+          we = false;
+          break;
+        }
+      }
+      if (!we) {
+        ali.add(name);
+        System.out.println("ali: " + name);
+      } else {
+        wechat.add(name);
+        System.out.println("we: " + name);
+      }
+    }
+    StringBuilder sb = new StringBuilder();
+    for (String n : ali) {
+      sb.append("\"" + n + "\",");
+    }
+    System.out.println("ali: " + sb.toString());
+    sb = new StringBuilder();
+    for (String n : wechat) {
+      sb.append("\"" + n + "\",");
+    }
+    System.out.println("wec: " + sb.toString());
+  }
+  
+  private static AipOcr getAipOcr(){
+    AipOcr client = new AipOcr(APP_ID, API_KEY, SECRET_KEY);
+    // 可选：设置网络连接参数
+    client.setConnectionTimeoutInMillis(2000);
+    client.setSocketTimeoutInMillis(60000);
+    return client;
+  }
+  
+  public static void main(String[] args) {
+    String dir = "/Users/apple/Downloads/tmp/image3_mine/WECHAT";
+    File fileDir = new File(dir);
+    String[] fileNames = fileDir.list();
+    Arrays.sort(fileNames);
+    StringBuilder sb = new StringBuilder();
+    for (int i = 0; i < fileNames.length; i++) {
+      if (fileNames[i].startsWith(".")) {
+        continue;
+      }
+      sb.append("\"" + fileNames[i] + "\",");
+      if((i + 1) % 6 == 0) {
+        System.out.println(sb);
+        sb = new StringBuilder();
+      }
+    }
+    System.out.println(sb.toString());
+  }
+  
 }
