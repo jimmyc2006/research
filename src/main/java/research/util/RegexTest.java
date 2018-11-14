@@ -19,7 +19,8 @@ public class RegexTest {
     Pattern pattern = Pattern.compile("\\$\\{([^\\}]+)\\}");
     Matcher matcher = pattern.matcher(content); 
     while(matcher.find()) {
-        String value = varReplaceMap.get(matcher.group(1));
+      String key = matcher.group(1);
+        String value = varReplaceMap.get(key);
         if (!StringUtils.isEmpty(value)) {
             matcher.appendReplacement(sb, value);
         } else {
@@ -33,7 +34,7 @@ public class RegexTest {
     String content = "sh ${aaa} ${bbb} ${ccc}dsfsdfsdfsdf";
     Map<String, String> vs = new HashMap<>();
     vs.put("aaa", "AAA");
-    vs.put("bbb", "BBB");
+    // vs.put("bbb", "BBB");
     vs.put("ccc", "CCC");
     System.out.println(replace(content, vs));
   }
